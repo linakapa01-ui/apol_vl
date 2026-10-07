@@ -60,6 +60,16 @@ function seed() {
   };
 }
 
+function pruneOrphans(data) {
+  const ids = new Set(data.customers.map((c) => c.id));
+  const orphans = data.appointments.filter((a) => !ids.has(a.customerId));
+  if (!orphans.length) return false;
+  const now = Date.now();
+  orphans.forEach((a) => { data.tombstones.appointments[a.id] = now; });
+  data.appointments = data.appointments.filter((a) => ids.has(a.customerId));
+  return true;
+}
+
 function normalise(data) {
   data.customers ||= [];
   data.appointments ||= [];
@@ -80,6 +90,7 @@ function normalise(data) {
     if (appt.duration == null) appt.duration = "";
     if (!appt.log) appt.log = [];
   });
+  pruneOrphans(data);
   return data;
 }
 
@@ -173,6 +184,7 @@ function mergeRemote(remote) {
     state.settings = remote.settings;
     changed = true;
   }
+  if (pruneOrphans(state)) changed = true;
   return changed;
 }
 

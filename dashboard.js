@@ -1,6 +1,6 @@
 let dashRange = "month";
 const PALETTE = ["var(--c-green)", "var(--c-blue)", "var(--c-amber)", "var(--c-violet)", "var(--c-teal)", "var(--c-orange)", "var(--c-red)"];
-const DASH_RANGES = [["week", "Εβδομάδα"], ["month", "Μήνας"], ["quarter", "3 μήνες"], ["year", "Έτος"], ["all", "Όλα"]];
+const DASH_RANGES = [["week", "Αυτή την εβδομάδα"], ["month", "Μήνας"], ["quarter", "3 μήνες"], ["year", "Έτος"], ["all", "Όλα"]];
 
 function dashBounds() {
   const today = todayISO();
@@ -129,7 +129,7 @@ function renderDashboard() {
       ${kpi("Έσοδα", esc(euro(revenue)), "green", `${done.length} ${done.length === 1 ? "επίσκεψη" : "επισκέψεις"}`)}
       ${kpi("Αναμένονται", esc(euro(pendTotal)), "orange", allPending !== pendTotal ? `Συνολικά ${esc(euro(allPending))}` : `${pend.length} πληρωμές`)}
       ${kpi("Μέσο ποσό", esc(euro(Math.round(avg))), "blue", "ανά επίσκεψη")}
-      ${kpi("Ακυρώσεις", `${rate}%`, rate > 20 ? "red" : "teal", `${canc.length} από ${finished}`)}
+      ${kpi("Ακυρώσεις", String(canc.length), rate > 20 ? "red" : "teal", finished ? `${rate}% των ${finished} κλεισμένων` : "Δεν έχεις κλείσει ραντεβού ακόμα")}
     </div>
     <div class="chart-grid">
       ${chartCard("Έσοδα ανά μήνα", `${barsSVG(monthly, "€")}<p class="legend-inline"><i style="background:var(--c-green)"></i>Εισπράχθηκαν <i style="background:var(--c-orange)"></i>Αναμένονται</p>`)}

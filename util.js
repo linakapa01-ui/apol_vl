@@ -17,6 +17,7 @@ const REPEATS = [
 ];
 
 const ICONS = {
+  import: '<path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19h14"/>',
   check: '<path d="M5 12.5 10 17.5 19 7"/>',
   home: '<path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z"/>',
   week: '<path d="M8 3v3M16 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/><path d="M8 13h8M8 17h5"/>',
@@ -31,6 +32,7 @@ const ICONS = {
   pin: '<path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.2"/>',
   phone: '<path d="M7 3h3l1.5 4-2 1.5a12 12 0 0 0 6 6L17 13l4 1.5V18a2 2 0 0 1-2 2A15 15 0 0 1 4 5a2 2 0 0 1 2-2Z"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  calplus: '<path d="M8 3v3M16 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/><path d="M12 12v6M9 15h6"/>',
   cash: '<rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/>',
   card: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/>',
   hourglass: '<path d="M7 3h10M7 21h10M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9"/>',
@@ -41,6 +43,7 @@ const ICONS = {
   building: '<path d="M5 21V5a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16M15 10h3a1 1 0 0 1 1 1v10M3 21h18M9 8h2M9 12h2M9 16h2"/>',
   door: '<path d="M6 21V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v17M4 21h16M14 12h.01"/>',
   manhole: '<circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16v4ZM13.5 6.5l4 4"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
   star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/>',
   heart: '<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/>'
@@ -103,6 +106,8 @@ function longDate(value) {
   const d = parseISO(value);
   return `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS_GEN[d.getMonth()]}`;
 }
+function dayName(value) { return value ? DAYS[parseISO(value).getDay()] : ""; }
+function dayHint(value) { return `<b class="day-hint">${esc(dayName(value))}</b>`; }
 function shortDate(value) {
   const d = parseISO(value);
   return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`;
@@ -128,7 +133,7 @@ function mapsLink(target, fallbackAddress) {
 function embedSrc(lat, lng, address) {
   if (lat && lng) return `https://maps.google.com/maps?q=${lat},${lng}&z=18&hl=el&output=embed`;
   if (address) return `https://maps.google.com/maps?q=${encodeURIComponent(address)}&z=16&hl=el&output=embed`;
-  return "about:blank";
+  return "https://maps.google.com/maps?q=" + encodeURIComponent("Ελλάδα") + "&z=6&hl=el&output=embed";
 }
 function parseMapsUrl(raw) {
   const text = String(raw || "").trim();
@@ -191,4 +196,26 @@ function formData(form) {
 
 function kv(label, valueHTML) {
   return valueHTML ? `<div class="kv"><dt>${label}</dt><dd>${valueHTML}</dd></div>` : "";
+}
+
+const geoCache = new Map();
+async function geocode(address) {
+  const text = String(address || "").trim();
+  if (text.length < 4) return null;
+  if (geoCache.has(text)) return geoCache.get(text);
+  const queries = [text, text.replace(/\b\d{3}\s?\d{2}\b/, "").replace(/\s+,/g, ",").trim()].filter((q, i, all) => q && all.indexOf(q) === i);
+  for (const q of queries) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=gr&accept-language=el&q=${encodeURIComponent(q)}`;
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data && data[0]) {
+        const found = { lat: Number(data[0].lat).toFixed(6), lng: Number(data[0].lon).toFixed(6) };
+        geoCache.set(text, found);
+        return found;
+      }
+    } catch { /* offline or blocked: fall back to the plain address */ }
+  }
+  return null;
 }

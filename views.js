@@ -37,7 +37,7 @@ function paintBadge() {
   badgeEl.textContent = String(n);
 }
 function paintBrand() {
-  const logo = state.settings.logo || "assets/logo.png";
+  const logo = state.settings.logo || "assets/logo-v2.png";
   document.querySelectorAll("[data-brand-logo]").forEach((img) => { img.src = logo; });
   document.getElementById("brand-name").textContent = state.settings.businessName.toLocaleUpperCase("el-GR");
   document.title = state.settings.businessName;
@@ -97,13 +97,17 @@ function cardHTML(appt, opts = {}) {
     has(appt.floor) ? `<span class="chip">Όροφος ${esc(appt.floor)}</span>` : "",
     fp ? `<span class="chip money">${esc(fp)} ανά όροφο</span>` : ""
   ].join("");
-  return `<article class="card st-${STATUS[key].tone}">
+  const due = key === "due";
+  return `<article class="card st-${due ? "blue" : STATUS[key].tone}${key === "done" ? " is-done" : ""}">
     <div class="card-body" data-action="appt" data-id="${esc(appt.id)}">
-      <div class="time"><span class="time-label">${icon("clock")}${esc(appt.time)}${opts.date ? ` · ${esc(shortDate(appt.date))}` : ""}</span>${statusTag(appt)}</div>
+      <div class="time"><span class="time-label">${icon("clock")}${esc(appt.time)}${opts.date ? ` · ${esc(shortDate(appt.date))}` : ""}</span>${due ? "" : statusTag(appt)}</div>
       <h3>${esc(person.name)}</h3>
       <a class="meta map" href="${esc(mapsLink(placeTarget(appt, person)))}" target="_blank" rel="noopener noreferrer">${icon("pin")}<span>${esc(person.address)}</span></a>
       ${chips ? `<div class="chips">${chips}</div>` : ""}
-      ${key === "due" ? `<button class="solid small" type="button" data-action="outcome" data-id="${esc(appt.id)}">Πώς πήγε; Ενημέρωση</button>` : ""}
+      ${due ? `<div class="verdict">
+        <button class="verdict-btn yes" type="button" data-action="outcome" data-id="${esc(appt.id)}" title="Έγινε" aria-label="Έγινε">${icon("check")}</button>
+        <button class="verdict-btn no" type="button" data-action="outcome-no" data-id="${esc(appt.id)}" title="Δεν έγινε" aria-label="Δεν έγινε">${icon("x")}</button>
+      </div>` : ""}
       ${key === "pending" ? `<button class="solid small orange" type="button" data-action="outcome" data-id="${esc(appt.id)}">Πληρώθηκε</button>` : ""}
     </div>
     ${dur || money ? `<div class="side" data-action="appt" data-id="${esc(appt.id)}">
@@ -129,7 +133,7 @@ function pendingBox() {
   const list = pendingPayments();
   if (!list.length) return "";
   const total = list.reduce((t, a) => t + amountOf(a), 0);
-  return `<section class="pending-box">
+  return `<section class="pending-box" id="home-pending">
     <div class="pending-head"><span>${icon("hourglass")}Αναμένονται πληρωμές</span><b>${esc(euro(total))}</b></div>
     <div class="pending-list">${list.map((a) => {
       const person = customer(a.customerId);
@@ -141,13 +145,6 @@ function pendingBox() {
       </div>`;
     }).join("")}</div>
   </section>`;
-}
-function dueBox() {
-  const list = dueAppointments();
-  if (!list.length) return "";
-  return `<section class="due-box"><h2 class="section-label">ΧΡΕΙΑΖΕΤΑΙ ΕΝΗΜΕΡΩΣΗ</h2>
-    <p class="note">Πέρασε η ώρα τους. Πες μου πώς πήγαν για να κλείσουν.</p>
-    <div class="stack">${list.map((a) => cardHTML(a, { date: true })).join("")}</div></section>`;
 }
 function repeatsBox() {
   const list = dueRepeats();
@@ -162,9 +159,18 @@ function repeatsBox() {
       </div></article>`).join("")}</div></section>`;
 }
 
+function todayHeadline(open, closed) {
+  if (open) return `Σήμερα έχεις ${open} ραντεβού`;
+  if (closed) return "Τελείωσες τα σημερινά ραντεβού";
+  return "Δεν έχεις ραντεβού σήμερα";
+}
+
 function renderHome() {
   const today = todayISO();
-  const list = apptsOn(today, false).filter((a) => a.status !== "postponed" && !isDue(a));
+  const todayAll = apptsOn(today, false).filter((a) => a.status !== "postponed");
+  const list = todayAll.filter(isActive);
+  const closed = todayAll.filter((a) => !isActive(a) && a.status !== "pending");
+  const earlier = dueAppointments().filter((a) => a.date < today);
   const weekEnd = addDays(mondayOf(today), 6);
   const weekList = state.appointments.filter((a) => isActive(a) && a.date >= mondayOf(today) && a.date <= weekEnd);
   const monthKey = today.slice(0, 7);
@@ -172,24 +178,28 @@ function renderHome() {
   const pending = pendingPayments();
   const pendingTotal = pending.reduce((t, a) => t + amountOf(a), 0);
   const todayActive = apptsOn(today).length;
-  viewEl.innerHTML = `<section class="hello">
-      <h2>${greeting()}, Νίκο!</h2>
-      <p>${todayActive ? `Σήμερα έχεις ${todayActive} ${todayActive === 1 ? "ραντεβού" : "ραντεβού"}.` : "Δεν έχεις ραντεβού που να περιμένουν σήμερα."}</p>
+  viewEl.innerHTML = `<section class="home-head">
+      <h2>${esc(todayHeadline(list.length, closed.length))}</h2>
+      <div class="quick-icons">
+        <button class="solid icon-act" type="button" data-action="new-appt" title="Νέο ραντεβού" aria-label="Νέο ραντεβού">${icon("calplus")}</button>
+        <button class="ghost icon-act" type="button" data-action="new-customer" title="Νέος πελάτης" aria-label="Νέος πελάτης">${icon("plus")}${icon("user")}</button>
+        <button class="ghost icon-act wide" type="button" data-view="messages" title="Μηνύματα SMS">${icon("msg")}<span>SMS</span></button>
+      </div>
     </section>
     <div class="kpis">
-      ${kpi("Σήμερα", todayActive, "blue", longDate(today))}
+      ${kpi("Σήμερα", todayActive, "blue", longDate(today), "scroll:home-today")}
       ${kpi("Αυτή την εβδομάδα", weekList.length, "teal", "ραντεβού", "go-week")}
       ${kpi("Έσοδα μήνα", esc(euro(monthRevenue)), "green", MONTHS[new Date().getMonth()], "go-dashboard")}
-      ${kpi("Εκκρεμείς πληρωμές", esc(euro(pendingTotal)), pending.length ? "orange" : "green", pending.length ? `${pending.length} ${pending.length === 1 ? "πελάτης" : "πελάτες"}` : "Όλα εισπράχθηκαν")}
+      ${kpi("Εκκρεμείς πληρωμές", esc(euro(pendingTotal)), pending.length ? "orange" : "green", pending.length ? `${pending.length} ${pending.length === 1 ? "πελάτης" : "πελάτες"}` : "Όλα εισπράχθηκαν", "scroll:home-pending")}
     </div>
-    <div class="actions quick">
-      <button class="solid" type="button" data-action="new-appt">${icon("plus")}Νέο ραντεβού</button>
-      <button class="ghost" type="button" data-action="new-customer">${icon("plus")}Νέος πελάτης</button>
-      <button class="ghost" type="button" data-view="messages">${icon("msg")}Μήνυμα</button>
-    </div>
-    ${dueBox()}
-    <h2 class="section-label">ΣΗΜΕΡΙΝΟ ΠΡΟΓΡΑΜΜΑ</h2>
-    <div class="stack">${list.map((a) => cardHTML(a)).join("") || emptyBox(dueAppointments().some((a) => a.date === today) ? "Τα υπόλοιπα ραντεβού της ημέρας είναι παραπάνω, περιμένουν ενημέρωση." : "Δεν υπάρχει ραντεβού για σήμερα.")}</div>
+    <section id="home-today">
+      <h2 class="section-label">ΡΑΝΤΕΒΟΥ ΣΗΜΕΡΑ</h2>
+      <div class="stack">${list.map((a) => cardHTML(a)).join("") || emptyBox("Δεν υπάρχει ραντεβού για σήμερα.")}</div>
+    </section>
+    ${closed.length ? `<section id="home-closed"><h2 class="section-label">ΟΛΟΚΛΗΡΩΘΗΚΑΝ ΣΗΜΕΡΑ</h2>
+      <div class="stack">${closed.map((a) => cardHTML(a)).join("")}</div></section>` : ""}
+    ${earlier.length ? `<section id="home-earlier"><h2 class="section-label">ΑΠΟ ΠΡΟΗΓΟΥΜΕΝΕΣ ΜΕΡΕΣ</h2>
+      <div class="stack">${earlier.map((a) => cardHTML(a, { date: true })).join("")}</div></section>` : ""}
     ${pendingBox()}
     ${repeatsBox()}`;
 }
@@ -197,7 +207,7 @@ function renderHome() {
 function renderWeek() {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = todayISO();
-  const active = state.appointments.filter((a) => isActive(a) && a.date >= days[0] && a.date <= days[6]);
+  const active = state.appointments.filter((a) => isActive(a) && a.date >= days[0] && a.date <= days[6] && customer(a.customerId));
   const expected = active.reduce((t, a) => t + amountOf(a), 0);
   const first = parseISO(days[0]);
   const last = parseISO(days[6]);
@@ -206,20 +216,21 @@ function renderWeek() {
     : `${first.getDate()} ${MONTHS_SHORT[first.getMonth()]} – ${last.getDate()} ${MONTHS_SHORT[last.getMonth()]}`;
   const thisWeek = weekStart === mondayOf(today);
   const rows = days.map((date, i) => {
-    const list = state.appointments.filter((a) => a.date === date && a.status !== "postponed").sort((a, b) => a.time.localeCompare(b.time));
+    const list = state.appointments.filter((a) => a.date === date && a.status !== "postponed" && customer(a.customerId)).sort((a, b) => a.time.localeCompare(b.time));
     const activeList = list.filter(isActive);
     const dayTotal = activeList.reduce((t, a) => t + amountOf(a), 0);
-    const open = date === today || (!thisWeek && list.length > 0) || (thisWeek && list.length > 0);
-    return `<details class="day-acc${date === today ? " today" : ""}"${open ? " open" : ""}>
-      <summary><span class="day-name"><b>${WEEKDAYS[i]}</b><i>${esc(shortDate(date))}</i></span>
-        <span class="day-meta">${list.length ? `<span class="tag tone-blue">${activeList.length} ${activeList.length === 1 ? "ραντεβού" : "ραντεβού"}</span>` : `<span class="muted-tag">Ελεύθερη μέρα</span>`}${dayTotal ? `<span class="day-sum">${esc(euro(dayTotal))}</span>` : ""}</span></summary>
+    const past = date < today;
+    const open = !past && (date === today || list.length > 0);
+    return `<details class="day-acc${date === today ? " today" : ""}${past ? " past" : ""}"${open ? " open" : ""}>
+      <summary><span class="day-name"><b>${WEEKDAYS[i]}${date === today ? '<em class="today-pill">Σήμερα</em>' : ""}</b><i>${esc(shortDate(date))}</i></span>
+        <span class="day-meta">${list.length ? `<span class="count-pill">${list.length} ${list.length === 1 ? "ραντεβού" : "ραντεβού"}</span>` : past ? "" : `<span class="muted-tag">Ελεύθερη μέρα</span>`}${dayTotal ? `<span class="day-sum">${esc(euro(dayTotal))}</span>` : ""}</span></summary>
       <div class="day-body">${list.map(weekRow).join("") || '<p class="empty small">Κανένα ραντεβού.</p>'}
-        <button class="text-btn add-day" type="button" data-action="new-appt-day" data-date="${date}">${icon("plus")}Προσθήκη ραντεβού</button></div>
+        ${date >= today ? `<button class="text-btn add-day" type="button" data-action="new-appt-day" data-date="${date}">${icon("plus")}Προσθήκη ραντεβού</button>` : ""}</div>
     </details>`;
   }).join("");
   viewEl.innerHTML = `<div class="week-bar">
       <button class="icon-btn" type="button" data-action="week-prev" aria-label="Προηγούμενη εβδομάδα">${icon("chevL")}</button>
-      <div class="week-title"><strong>${esc(range)}</strong><span>${thisWeek ? "Αυτή η εβδομάδα" : `Εβδομάδα ${esc(longDate(days[0]))}`}</span></div>
+      <div class="week-title"><strong>${esc(range)}</strong><span>${thisWeek ? "Αυτή την εβδομάδα" : `Εβδομάδα ${esc(longDate(days[0]))}`}</span></div>
       <button class="icon-btn" type="button" data-action="week-next" aria-label="Επόμενη εβδομάδα">${icon("chevR")}</button>
     </div>
     <div class="kpis small">
@@ -235,7 +246,7 @@ function weekRow(appt) {
   const fp = floorPriceText(appt, person);
   const manholes = has(appt.manholes) ? appt.manholes === "Ναι" : flagsOf(person).manholes;
   const money = amountOf(appt);
-  return `<div class="week-row st-${STATUS[statusKey(appt)].tone}" data-action="appt" data-id="${esc(appt.id)}">
+  return `<div class="week-row st-${STATUS[statusKey(appt)].tone}${statusKey(appt) === "done" ? " is-done" : ""}" data-action="appt" data-id="${esc(appt.id)}">
     <div class="week-time">${esc(appt.time)}</div>
     <div class="week-main">
       <strong>${esc(person.name)}</strong>
@@ -282,7 +293,7 @@ function renderCalendar() {
       <div class="cal-head">${WEEK.map((d) => `<span>${d}</span>`).join("")}</div>
       <div class="cal-grid">${cells}</div>
     </div>
-    <div class="cal-day"><div class="row"><h2 class="section-label">${esc(longDate(picked))}</h2><button class="solid small" type="button" data-action="new-appt-day" data-date="${picked}">${icon("plus")}Νέο</button></div>
+    <div class="cal-day"><div class="row"><h2 class="section-label">${esc(longDate(picked))}</h2>${picked >= todayISO() ? `<button class="solid small" type="button" data-action="new-appt-day" data-date="${picked}">${icon("plus")}Νέο</button>` : ""}</div>
     <div class="stack">${pickedList.map((a) => cardHTML(a)).join("") || emptyBox("Καμία επίσκεψη αυτή την ημέρα.")}</div></div></div>`;
 }
 
@@ -323,7 +334,7 @@ function customerResults() {
     <div class="stack">${list.map(customerCard).join("") || emptyBox("Δεν βρέθηκε πελάτης με αυτά τα φίλτρα.")}</div>`;
 }
 function renderCustomers() {
-  viewEl.innerHTML = `<div class="row"><h2 class="section-label">ΠΕΛΑΤΟΛΟΓΙΟ</h2><button class="solid small" type="button" data-action="new-customer">${icon("plus")}Νέος πελάτης</button></div>
+  viewEl.innerHTML = `<div class="row"><h2 class="section-label">ΠΕΛΑΤΟΛΟΓΙΟ</h2><span class="row-actions"><button class="ghost small" type="button" data-action="import-contacts" title="Εισαγωγή επαφών" aria-label="Εισαγωγή επαφών">${icon("import")}</button><button class="solid small" type="button" data-action="new-customer">${icon("plus")}Νέος πελάτης</button></span></div>
     <input class="search" id="search" type="search" placeholder="Αναζήτηση ονόματος, περιοχής, τηλεφώνου" value="${esc(query)}" autocomplete="off">
     <div id="cust-filters">${customerFilterChips()}</div>
     <div id="cust-results">${customerResults()}</div>`;
@@ -368,7 +379,7 @@ function renderProfile() {
   const base = new Set(DEFAULT_CATEGORIES);
   viewEl.innerHTML = `<div class="profile-grid">
     <article class="panel profile-card">
-      <img src="${esc(s.logo || "assets/logo.png")}" alt="Λογότυπο" data-brand-logo>
+      <img src="${esc(s.logo || "assets/logo-v2.png")}" alt="Λογότυπο" data-brand-logo>
       <h2>${esc(s.businessName)}</h2>
       <p class="sub">Απεντόμωση · Μυοκτονία · Απολύμανση</p>
       <div class="actions center"><label class="ghost file-btn">Αλλαγή λογοτύπου<input type="file" id="logo-file" accept="image/*" hidden></label>${s.logo ? '<button class="text-btn danger" type="button" data-action="logo-reset">Αρχικό λογότυπο</button>' : ""}</div>

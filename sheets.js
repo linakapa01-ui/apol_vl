@@ -52,10 +52,10 @@ function apptSheet(id) {
       ${kv("Σημειώσεις", has(appt.notes || person.notes) ? esc(appt.notes || person.notes) : "")}
       ${moves.length ? kv("Μεταφορές", moves.map((item) => `Από ${esc(longDate(item.from))} στις ${esc(longDate(item.to))}`).join("<br>")) : ""}
     </dl>
-    ${lat ? `<iframe class="map-frame" title="Google Maps" src="${esc(embedSrc(lat, lng))}"></iframe>` : ""}
+    ${lat ? `<iframe class="map-frame" title="Google Maps" src="${esc(embedSrc(lat, lng))}"></iframe>` : `<p class="note">Η τοποθεσία είναι προσεγγιστική, από τη διεύθυνση. Διόρθωσέ την από τον πελάτη.</p>`}
     ${payRows}${cancelRows}${postponedRows}
     ${active ? `<form class="form move-form" id="move-form" data-id="${esc(appt.id)}">
-      <label>Αλλαγή ημερομηνίας<input type="date" name="date" value="${esc(appt.date)}" required></label>
+      <label>Αλλαγή ημερομηνίας ${dayHint(appt.date)}<input type="date" name="date" value="${esc(appt.date)}" min="${esc(todayISO())}" required></label>
       <button class="ghost" type="submit">Μεταφορά σε αυτή την ημέρα</button>
     </form>` : ""}
     <div class="actions">
@@ -102,7 +102,7 @@ function outcomeSheet(id, mode) {
     </form>`;
   } else if (mode === "postpone") {
     panel = `<form class="form" id="outcome-form" data-id="${esc(id)}" data-mode="postpone">
-      <label>Νέα ημερομηνία<input type="date" name="date" value="${esc(addDays(appt.date, 1))}" required></label>
+      <label>Νέα ημερομηνία ${dayHint(addDays(appt.date, 1) < todayISO() ? todayISO() : addDays(appt.date, 1))}<input type="date" name="date" value="${esc(addDays(appt.date, 1) < todayISO() ? todayISO() : addDays(appt.date, 1))}" min="${esc(todayISO())}" required></label>
       <label>Ώρα<input type="time" name="time" value="${esc(appt.time)}" required></label>
       <label>Λόγος αναβολής<input name="reason" placeholder="π.χ. δεν ήταν στο σπίτι"></label>
       <button class="solid violet" type="submit">Αναβολή και νέο ραντεβού</button>
@@ -151,7 +151,9 @@ function customerSheet(id) {
       ${kv("Οφείλει", owed ? `<b class="owed">${esc(euro(owed))}</b>` : "")}
       ${kv("Σημειώσεις τεχνικού", has(person.notes) ? esc(person.notes) : "")}
     </dl>
-    ${person.lat ? `<iframe class="map-frame" title="Google Maps" src="${esc(embedSrc(person.lat, person.lng))}"></iframe>` : ""}
+    ${person.lat
+      ? `<iframe class="map-frame" title="Google Maps" src="${esc(embedSrc(person.lat, person.lng))}"></iframe>`
+      : `<p class="note">Η τοποθεσία είναι προσεγγιστική, από τη διεύθυνση. Πάτα «Διόρθωση» για να βάλεις το ακριβές σημείο.</p>`}
     <div class="actions">
       <button class="solid" type="button" data-action="appt-for" data-id="${esc(person.id)}">${icon("plus")}Νέο ραντεβού</button>
       ${call ? `<a class="ghost" href="${esc(call)}">${icon("phone")}Κλήση</a>` : ""}
@@ -164,15 +166,17 @@ function customerSheet(id) {
 
 function locationFields(record) {
   const locked = record.lat && record.lng;
-  return `<div class="map-pick">
-      <p class="note">Άνοιξε το Google Maps, βρες το κτίριο, πάτα Κοινοποίηση και επικόλλησε τον σύνδεσμο. Έτσι κλειδώνει το ακριβές σημείο.</p>
+  return `<div class="map-pick" data-address="${esc(record.address || "")}">
       <iframe class="map-frame" id="map-frame" title="Google Maps" src="${esc(embedSrc(record.lat, record.lng, record.address))}"></iframe>
+      <p class="map-status${locked ? " ok" : ""}" id="map-status">${locked ? (record.mapsUrl ? "Το σημείο είναι κλειδωμένο." : "Βρέθηκε αυτόματα από τη διεύθυνση.") : ""}</p>
       <a class="ghost map-open" id="open-gmaps" href="${esc(mapsLink(record))}" target="_blank" rel="noopener noreferrer">Άνοιγμα στο Google Maps</a>
-      <label>Σύνδεσμος Google Maps
-        <input name="mapsUrl" id="maps-url" value="${esc(record.mapsUrl || "")}" placeholder="Επικόλληση συνδέσμου">
-      </label>
-      <p class="map-status${locked ? " ok" : ""}" id="map-status">${locked ? "Το ακριβές σημείο είναι κλειδωμένο." : ""}</p>
-      <input type="hidden" name="lat" id="map-lat" value="${esc(record.lat || "")}">
+      <details class="map-manual"${record.mapsUrl ? " open" : ""}>
+        <summary>Διόρθωση σημείου με σύνδεσμο</summary>
+        <label>Σύνδεσμος Google Maps
+          <input name="mapsUrl" id="maps-url" value="${esc(record.mapsUrl || "")}" placeholder="Επικόλληση πλήρους συνδέσμου">
+        </label>
+      </details>
+      <input type="hidden" name="lat" id="map-lat" value="${esc(record.lat || "")}" data-auto="${locked && !record.mapsUrl ? "1" : "0"}">
       <input type="hidden" name="lng" id="map-lng" value="${esc(record.lng || "")}">
     </div>`;
 }
@@ -180,11 +184,13 @@ function categoryChoices(selected) {
   const set = new Set(selected || []);
   return `<div class="choices wrap">${categories().map((c) => `<label class="choice"><input type="checkbox" name="categories" value="${esc(c)}"${set.has(c) ? " checked" : ""}><span>${esc(c)}</span></label>`).join("")}</div>`;
 }
-function customerForm(person) {
-  const c = person || {};
+let returnAppt = null;
+
+function customerForm(person, opts = {}) {
+  const c = person || opts.prefill || {};
   const flags = person ? flagsOf(person) : { building: true, apartments: false, manholes: false };
   openSheet(`<h2>${person ? "Διόρθωση πελάτη" : "Νέος πελάτης"}</h2>
-    <form class="form" id="customer-form" data-id="${esc(c.id || "")}">
+    <form class="form" id="customer-form" data-id="${esc(person ? person.id : "")}"${opts.returnToAppt ? ' data-return="1"' : ""}>
       ${field("Όνομα πελάτη", "name", c.name, "required")}
       <label>Διεύθυνση<input name="address" id="map-address" value="${esc(c.address || "")}" required></label>
       ${locationFields(c)}
@@ -202,8 +208,10 @@ function customerForm(person) {
       <label>Ημερομηνία τελευταίας απολύμανσης<input type="date" name="lastDate" value="${esc(c.lastDate || "")}"></label>
       ${field("Είδος εντόμου / τρωκτικού", "pest", c.pest)}
       <label>Σημειώσεις τεχνικού<textarea name="notes">${esc(c.notes || "")}</textarea></label>
-      <div class="actions"><button class="solid" type="submit">Αποθήκευση</button>${person ? `<button class="text-btn danger" type="button" data-action="delete-customer" data-id="${esc(c.id)}">Διαγραφή</button>` : ""}</div>
-    </form>`);
+      <button class="solid big" type="submit">Αποθήκευση</button>
+    </form>
+    ${person ? `<div class="danger-zone"><button class="ghost danger" type="button" data-action="delete-customer" data-id="${esc(c.id)}">${icon("trash")}Διαγραφή πελάτη</button></div>` : ""}`);
+  if (!c.lat && c.address) autoLocateSoon();
 }
 
 function apptLocation(person) {
@@ -218,11 +226,25 @@ function apptLocation(person) {
 }
 function customerOptionsHTML(q, selectedId) {
   const matches = state.customers.filter((c) => matchesText(`${c.name} ${c.address} ${c.phone} ${c.phone2 || ""}`, q));
-  if (!matches.length) return '<p class="picker-empty">Δεν βρέθηκε πελάτης.</p>';
+  const addBtn = `<button type="button" class="picker-add" data-action="add-customer-from-appt" data-q="${esc(String(q || "").trim())}">${icon("plus")}<span>Προσθήκη νέου πελάτη${has(q) ? `: «${esc(String(q).trim())}»` : ""}</span></button>`;
+  if (!matches.length) return `<p class="picker-empty">Δεν βρέθηκε πελάτης.</p>${addBtn}`;
   return matches.map((c) => `<button type="button" class="picker-item${c.id === selectedId ? " selected" : ""}" data-action="pick-customer" data-id="${esc(c.id)}">
       <strong>${esc(c.name)}</strong>
       <span>${esc([c.address, c.phone].filter(Boolean).join(" · "))}</span>
-    </button>`).join("");
+    </button>`).join("") + addBtn;
+}
+function newCustomerFromAppt(q) {
+  const form = document.getElementById("appt-form");
+  returnAppt = form ? formData(form) : null;
+  if (returnAppt) ['customerId', 'lat', 'lng', 'mapsUrl'].forEach((k) => delete returnAppt[k]);
+  const text = String(q || "").trim();
+  const isPhone = /^[\d\s+()-]{5,}$/.test(text);
+  customerForm(null, { returnToAppt: true, prefill: isPhone ? { phone: text } : { name: text } });
+}
+function backToApptWith(customerId) {
+  const prefill = returnAppt || {};
+  returnAppt = null;
+  apptForm(null, { prefill, override: { customerId } });
 }
 function customerPicker(person) {
   return `<div class="picker" id="cust-picker">
@@ -232,6 +254,27 @@ function customerPicker(person) {
       <div class="picker-list" id="cust-list" role="listbox" hidden></div>
       <p class="map-status bad" id="cust-error" hidden>Διάλεξε πελάτη από τη λίστα.</p>
     </div>`;
+}
+function agendaHTML(date, time, duration, excludeId) {
+  const list = dayAgenda(date, excludeId);
+  const clash = findClash(date, time, duration, excludeId);
+  const items = list.map((a) => {
+    const person = customer(a.customerId);
+    const end = minutesOf(a.time) + durationMinutes(a.duration);
+    const endText = `${String(Math.floor(end / 60) % 24).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`;
+    return `<span class="ag-item${clash && clash.id === a.id ? " clash" : ""}"><b>${esc(a.time)}–${endText}</b> ${esc(person ? person.name : "")}</span>`;
+  }).join("");
+  return `${clash ? `<p class="clash-msg">${icon("x")}${esc(clashText(clash))}</p>` : ""}
+    <div class="ag-row">${items || '<span class="ag-free">Ελεύθερη μέρα</span>'}</div>`;
+}
+function refreshAgenda() {
+  const form = document.getElementById("appt-form");
+  const box = document.getElementById("day-agenda");
+  if (!form || !box) return;
+  box.innerHTML = agendaHTML(form.elements.date.value, form.elements.time.value, form.elements.duration.value, form.dataset.id);
+}
+function autoLocateSoon() {
+  setTimeout(() => { if (typeof scheduleMapAddress === "function") scheduleMapAddress(); }, 60);
 }
 function apptForm(appt, opts = {}) {
   const base = appt || opts.prefill || {};
@@ -244,6 +287,7 @@ function apptForm(appt, opts = {}) {
     ...base,
     ...(opts.override || {})
   };
+  if (!appt && a.date < todayISO()) a.date = todayISO();
   const person = customer(a.customerId);
   const manholes = has(a.manholes) ? a.manholes === "Ναι" : Boolean(person && flagsOf(person).manholes);
   const services = [...new Set([...categories(), a.service].filter(Boolean))];
@@ -253,9 +297,10 @@ function apptForm(appt, opts = {}) {
       ${customerPicker(person)}
       ${apptLocation(person)}
       <div class="grid-2">
-        <label>Ημερομηνία<input type="date" name="date" value="${esc(a.date)}" required></label>
+        <label>Ημερομηνία ${dayHint(a.date)}<input type="date" name="date" value="${esc(a.date)}"${appt ? "" : ` min="${esc(todayISO())}"`} required></label>
         <label>Ώρα<input type="time" name="time" value="${esc(a.time)}" required></label>
       </div>
+      <div class="day-agenda" id="day-agenda">${agendaHTML(a.date, a.time, a.duration, appt ? appt.id : "")}</div>
       <div class="grid-2">
         <label>Κατηγορία<select name="service">${services.map((s) => `<option ${a.service === s ? "selected" : ""}>${esc(s)}</option>`).join("")}</select></label>
         ${field("Εκτιμώμενος χρόνος", "duration", a.duration, 'placeholder="π.χ. 45 λεπτά"')}
@@ -270,6 +315,7 @@ function apptForm(appt, opts = {}) {
       <label>Σημειώσεις<textarea name="notes">${esc(a.notes || "")}</textarea></label>
       <div class="actions"><button class="solid" type="submit">Αποθήκευση</button></div>
     </form>`);
+  if (person && !person.lat) autoLocateSoon();
 }
 function repeatAppt(id) {
   const from = apptById(id);

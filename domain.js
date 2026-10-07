@@ -149,6 +149,7 @@ function finishPaid(id, method, amount) {
   pushLog(appt, "done", { method });
   if (person) person.lastDate = appt.date;
   save();
+  pushNote("Ολοκληρώθηκε", `${person ? person.name : "Ραντεβού"}, ${appt.time}. Πληρώθηκε ${euro(appt.amount)}.`, true);
 }
 function finishPending(id, amount, note) {
   const appt = apptById(id);
@@ -162,6 +163,7 @@ function finishPending(id, amount, note) {
   pushLog(appt, "pending");
   if (person) person.lastDate = appt.date;
   save();
+  pushNote("Αναμένεται πληρωμή", `${person ? person.name : "Ραντεβού"}: ${euro(appt.amount)}.`, true);
 }
 function markPaid(id, method) {
   const appt = apptById(id);
@@ -171,6 +173,8 @@ function markPaid(id, method) {
   appt.paidAt = new Date().toISOString();
   pushLog(appt, "paid", { method });
   save();
+  const who = customer(appt.customerId);
+  pushNote("Πληρώθηκε", `${who ? who.name : "Ραντεβού"}: ${euro(amountOf(appt))}.`, true);
 }
 function postponeAppt(id, date, time, reason) {
   const appt = apptById(id);
@@ -200,6 +204,8 @@ function postponeAppt(id, date, time, reason) {
   delete copy._h;
   state.appointments.push(copy);
   save();
+  const who = customer(appt.customerId);
+  pushNote("Αναβολή", `${who ? who.name : "Ραντεβού"} πήγε στις ${longDate(date)}.`, false);
   return copy;
 }
 function cancelAppt(id, reasonId, text) {
@@ -210,6 +216,8 @@ function cancelAppt(id, reasonId, text) {
   appt.cancel = { reason: reason.id, label: reason.label, by: reason.by, timing: reason.timing || "", text: text || "", at: new Date().toISOString() };
   pushLog(appt, "cancelled", { reason: reason.id });
   save();
+  const who = customer(appt.customerId);
+  pushNote("Ακύρωση", `${who ? who.name : "Ραντεβού"} στις ${longDate(appt.date)}: ${reason.label}.`, false);
 }
 function restoreAppt(id) {
   const appt = apptById(id);
@@ -233,9 +241,17 @@ function pushNote(title, body, alsoPhone, apptId) {
   paintBadge();
   if (alsoPhone) phoneNotify(title, body);
 }
-function phoneNotify(title, body) {
+async function phoneNotify(title, body) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
-  try { new Notification(title, { body, icon: "assets/logo.png" }); } catch { /* page without permission */ }
+  const options = { body, icon: "assets/logo-v2.png", badge: "assets/logo-v2.png", lang: "el" };
+  try {
+    const reg = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : null;
+    if (reg && reg.showNotification) {
+      await reg.showNotification(title, options);
+      return;
+    }
+    new Notification(title, options);
+  } catch { /* notifications not available here */ }
 }
 function dailyReminder() {
   const today = todayISO();
@@ -259,3 +275,31 @@ function checkOutcomes() {
   save();
 }
 function unread() { return state.notifications.filter((n) => !n.read).length; }
+
+function occupiesTime(a) {
+  return a.status !== "cancelled" && a.status !== "postponed" && Boolean(customer(a.customerId));
+}
+function dayAgenda(date, excludeId = "") {
+  return state.appointments
+    .filter((a) => a.date === date && a.id !== excludeId && occupiesTime(a))
+    .sort((a, b) => a.time.localeCompare(b.time));
+}
+function minutesOf(time) {
+  const [h, m] = String(time || "0:0").split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+function overlaps(time, duration, other) {
+  const start = minutesOf(time);
+  const end = start + durationMinutes(duration);
+  const oStart = minutesOf(other.time);
+  const oEnd = oStart + durationMinutes(other.duration);
+  return start < oEnd && oStart < end;
+}
+function findClash(date, time, duration, excludeId = "") {
+  if (!date || !time) return null;
+  return dayAgenda(date, excludeId).find((a) => overlaps(time, duration, a)) || null;
+}
+function clashText(clash) {
+  const person = customer(clash.customerId);
+  return `Έχεις ήδη ραντεβού στις ${clash.time}${person ? ` με ${person.name}` : ""}.`;
+}
