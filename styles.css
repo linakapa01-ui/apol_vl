@@ -459,26 +459,40 @@ label.recip.nophone { opacity: 0.5; cursor: not-allowed; }
   .sheet { align-items: center; }
   .sheet-card { border-radius: 24px; border-bottom: 1px solid var(--line); padding: 16px 28px 28px; max-height: 88dvh; }
 }
-@media (min-width: 920px) {
-  .app { width: min(100%, 1360px); display: grid; grid-template-columns: 290px minmax(0, 1fr); align-items: start; padding-bottom: 40px; }
-  .sidebar { display: flex; flex-direction: column; position: sticky; top: 0; height: 100dvh; padding: 18px 14px 14px 18px; overflow-y: auto; border-right: 1px solid var(--line); }
-  .top { padding: calc(6px + env(safe-area-inset-top)) 6px 8px; }
-  .logo { width: 150px; height: 150px; }
-  .brand h1 { font-size: 26px; }
-  .nav { order: 1; position: static; display: grid; grid-template-columns: 1fr; gap: 4px; padding: 10px 0; background: transparent; border: 0; backdrop-filter: none; }
-  .nav button { display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 12px 14px; font-size: 15px; border-radius: 14px; }
+@media (min-width: 760px) {
+  .app { width: 100%; display: grid; grid-template-columns: 240px minmax(0, 1fr); align-items: start; padding-bottom: 40px; }
+  .sidebar { display: flex; flex-direction: column; position: sticky; top: 0; height: 100dvh; padding: 14px 10px 12px 14px; overflow-y: auto; border-right: 1px solid var(--line); }
+  .top { padding: calc(6px + env(safe-area-inset-top)) 4px 6px; }
+  .logo { width: 120px; height: 120px; }
+  .brand h1 { font-size: 22px; }
+  .nav { order: 1; position: static; display: grid; grid-template-columns: 1fr; gap: 3px; padding: 8px 0; background: transparent; border: 0; backdrop-filter: none; }
+  .nav button { display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 11px 12px; font-size: 15px; border-radius: 14px; }
   .nav button:hover { background: var(--chip); }
   .nav button.active { background: var(--chip); color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
   .nav .secondary { display: flex; }
   .nav .more-btn { display: none; }
   .credit { margin: auto 0 0; padding-top: 12px; }
-  main { padding: 28px 40px 40px; max-width: 1040px; }
-  .stack { grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); }
-  .chart-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .people-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .cal-wrap { grid-template-columns: 420px minmax(0, 1fr); align-items: start; }
+  main { padding: 22px 26px 40px; }
+  .stack { grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
   .toast { bottom: 32px; }
   .more-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (min-width: 1100px) {
+  .app { width: min(100%, 1560px); grid-template-columns: 290px minmax(0, 1fr); }
+  .sidebar { padding: 18px 14px 14px 18px; }
+  .logo { width: 150px; height: 150px; }
+  .brand h1 { font-size: 26px; }
+  .nav button { padding: 12px 14px; }
+  main { padding: 28px 40px 40px; max-width: 1280px; }
+  .people-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cal-wrap { grid-template-columns: 420px minmax(0, 1fr); align-items: start; }
+}
+@media (min-width: 1500px) {
+  .app { width: min(100%, 1900px); grid-template-columns: 320px minmax(0, 1fr); }
+  main { max-width: 1520px; padding: 32px 56px 48px; }
+  .chart-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .stack { grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); }
+  .kpis { gap: 16px; }
 }
 
 /* Tone classes come last so they override each component default */
