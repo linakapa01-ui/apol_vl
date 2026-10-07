@@ -1,0 +1,17 @@
+{
+  "name": "Νίκος Βλάχος",
+  "short_name": "Βλάχος",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#070807",
+  "theme_color": "#070807",
+  "lang": "el",
+  "icons": [
+    {
+      "src": "assets/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
