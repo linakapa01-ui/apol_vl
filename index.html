@@ -11,41 +11,49 @@
   <link rel="manifest" href="manifest.json">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=2">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
   <div class="app">
-    <header class="top">
-      <div class="toolbar">
-        <button class="icon-btn" id="bell" type="button" aria-label="Ειδοποιήσεις">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5v2.3c0 .7-.3 1.4-.8 1.9L5 13.6V15h14v-1.4l-1.2-1.4a2.7 2.7 0 0 1-.8-1.9V8a5 5 0 0 0-5-5Z"/><path d="M10 17a2 2 0 0 0 4 0"/></svg>
-          <span class="badge" id="badge" hidden>0</span>
-        </button>
-        <button class="icon-btn" id="theme" type="button" aria-label="Αλλαγή εμφάνισης">
-          <svg id="theme-icon" viewBox="0 0 24 24" aria-hidden="true"></svg>
-        </button>
-      </div>
-      <div class="brand">
-        <img src="assets/logo.png" alt="Λογότυπο Νίκος Βλάχος" class="logo">
-        <h1>ΝΙΚΟΣ ΒΛΑΧΟΣ</h1>
-        <p>Απεντόμωση · Μυοκτονία · Απολύμανση</p>
-      </div>
-    </header>
+    <div class="sidebar">
+      <header class="top">
+        <div class="toolbar">
+          <span class="sync-dot" id="sync-dot" hidden></span>
+          <div class="toolbar-btns">
+            <button class="icon-btn" id="bell" type="button" aria-label="Ειδοποιήσεις">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5v2.3c0 .7-.3 1.4-.8 1.9L5 13.6V15h14v-1.4l-1.2-1.4a2.7 2.7 0 0 1-.8-1.9V8a5 5 0 0 0-5-5Z"/><path d="M10 17a2 2 0 0 0 4 0"/></svg>
+              <span class="badge" id="badge" hidden>0</span>
+            </button>
+            <button class="icon-btn" id="theme" type="button" aria-label="Αλλαγή εμφάνισης">
+              <svg id="theme-icon" viewBox="0 0 24 24" aria-hidden="true"></svg>
+            </button>
+          </div>
+        </div>
+        <div class="brand">
+          <img src="assets/logo.png" alt="Λογότυπο" class="logo" data-brand-logo>
+          <h1 id="brand-name">ΝΙΚΟΣ ΒΛΑΧΟΣ</h1>
+          <p>Απεντόμωση · Μυοκτονία · Απολύμανση</p>
+        </div>
+      </header>
+      <nav class="nav" id="nav" aria-label="Κύριο μενού"></nav>
+      <footer class="credit"><button type="button" data-action="love">Made by Lina</button></footer>
+    </div>
     <main id="view"></main>
-    <nav class="nav">
-      <button type="button" data-view="home"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z"/></svg><span>Αρχική</span></button>
-      <button type="button" data-view="schedule"><svg viewBox="0 0 24 24"><path d="M8 3v3M16 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/><path d="M8 13h3M8 17h8"/></svg><span>Πρόγραμμα</span></button>
-      <button type="button" data-view="calendar"><svg viewBox="0 0 24 24"><path d="M8 3v3M16 3v3M4 9h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/><circle cx="8" cy="13" r="1"/><circle cx="12" cy="13" r="1"/><circle cx="16" cy="13" r="1"/></svg><span>Ημερολόγιο</span></button>
-      <button type="button" data-view="customers"><svg viewBox="0 0 24 24"><path d="M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM16.5 11a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM3.5 19c.4-2.6 2.4-4 4.5-4s4.1 1.4 4.5 4M14 15.1c1.6.2 3 .9 3.6 2.9"/></svg><span>Πελάτες</span></button>
-      <button type="button" data-view="profile"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M5 19.2c1.2-2.8 3.6-4.2 7-4.2s5.8 1.4 7 4.2"/></svg><span>Προφίλ</span></button>
-    </nav>
-    <footer class="credit">Made by Lina</footer>
   </div>
   <div class="sheet" id="sheet" hidden>
     <button class="sheet-backdrop" type="button" data-action="close" aria-label="Κλείσιμο"></button>
     <div class="sheet-card" id="sheet-body"></div>
   </div>
-  <script src="app.js?v=3"></script>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="config.js"></script>
+  <script src="util.js?v=1"></script>
+  <script src="store.js?v=1"></script>
+  <script src="domain.js?v=1"></script>
+  <script src="views.js?v=1"></script>
+  <script src="sheets.js?v=1"></script>
+  <script src="dashboard.js?v=1"></script>
+  <script src="messages.js?v=1"></script>
+  <script src="main.js?v=1"></script>
 </body>
 </html>
