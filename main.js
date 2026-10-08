@@ -42,7 +42,7 @@ document.body.addEventListener("click", (event) => {
     go(target.dataset.view);
     return;
   }
-  const action = target.dataset.action;
+  const [action, arg] = String(target.dataset.action).split(":");
   const id = target.dataset.id;
   const value = target.dataset.v;
   switch (action) {
@@ -50,16 +50,22 @@ document.body.addEventListener("click", (event) => {
     case "more": moreSheet(); break;
     case "love": loveSheet(); break;
     case "pick-customer": choosePicker(id); break;
+    case "add-customer-from-appt": newCustomerFromAppt(target.dataset.q); break;
     case "appt": apptSheet(id); break;
     case "customer": customerSheet(id); break;
     case "new-customer": customerForm(); break;
+    case "import-contacts": importSheet(); break;
+    case "imp-device": importFromDevice(); break;
+    case "imp-confirm": importConfirm(); break;
     case "edit-customer": customerForm(customer(id)); break;
     case "new-appt": apptForm(null, { customerId: id }); break;
-    case "new-appt-day": apptForm(null, { date: target.dataset.date }); break;
+    case "new-appt-day": apptForm(null, { date: target.dataset.date, prefill: target.dataset.time ? { time: target.dataset.time } : undefined }); break;
+    case "pick-phone": phoneSheet(id, value); break;
     case "appt-for": apptForm(null, { customerId: id }); break;
     case "edit-appt": apptForm(apptById(id)); break;
     case "repeat-appt": repeatAppt(id); break;
     case "outcome": outcomeSheet(id, "paid"); break;
+    case "outcome-no": outcomeSheet(id, "cancel"); break;
     case "outcome-tab": outcomeSheet(id, value); break;
     case "pick-day": picked = target.dataset.date; render(); break;
     case "prev-month": cal = new Date(cal.getFullYear(), cal.getMonth() - 1, 1); render(); break;
@@ -67,6 +73,7 @@ document.body.addEventListener("click", (event) => {
     case "week-prev": weekStart = addDays(weekStart, -7); render(); break;
     case "week-next": weekStart = addDays(weekStart, 7); render(); break;
     case "week-today": weekStart = mondayOf(todayISO()); render(); break;
+    case "scroll": scrollToSection(arg); break;
     case "go-week": go("week"); break;
     case "go-dashboard": go("dashboard"); break;
     case "toggle-theme": document.getElementById("theme").click(); break;
@@ -105,36 +112,25 @@ document.body.addEventListener("click", (event) => {
     case "msg-cat": msgFilter.cat = value; refreshMessageParts(); break;
     case "msg-owe": msgFilter.owe = !msgFilter.owe; refreshMessageParts(); break;
     case "ph-insert": {
-      const box = document.getElementById("msg-text");
+      const box = document.querySelector("#tpl-form textarea[name=text]");
       if (!box) break;
       const start = box.selectionStart ?? box.value.length;
       box.setRangeText(value, start, box.selectionEnd ?? start, "end");
-      msgText = box.value;
       box.focus();
-      refreshMessageParts();
       break;
     }
-    case "tpl-use": {
-      const t = state.templates.find((x) => x.id === id);
-      if (t) { msgTemplateId = id; msgText = t.text; renderMessages(); }
-      break;
-    }
-    case "tpl-new": templateForm(null, msgText); break;
+    case "tpl-send": sendSheet(id); break;
+    case "tpl-new": templateForm(null); break;
     case "tpl-edit": templateForm(id); break;
     case "tpl-delete":
-      if (confirm("Να διαγραφεί αυτό το έτοιμο μήνυμα;")) {
+      if (confirm("Να διαγραφεί αυτό το μήνυμα;")) {
         state.templates = state.templates.filter((t) => t.id !== id);
         if (msgTemplateId === id) msgTemplateId = "";
         save();
-        renderMessages();
+        closeSheet();
+        render();
       }
       break;
-    case "tpl-save-current": {
-      const t = state.templates.find((x) => x.id === msgTemplateId);
-      if (t && has(msgText)) { t.text = msgText.trim(); save(); renderMessages(); toast("Το πρότυπο ενημερώθηκε."); }
-      else templateForm(null, msgText);
-      break;
-    }
     case "cat-remove":
       state.settings.categories = state.settings.categories.filter((c) => c !== value);
       save();
@@ -156,11 +152,33 @@ document.body.addEventListener("click", (event) => {
 
 document.body.addEventListener("change", (event) => {
   const el = event.target;
+  if (el.form && el.form.id === "appt-form" && ["date", "time", "duration"].includes(el.name)) refreshAgenda();
+  if (el.type === "date" && el.name === "date") {
+    const hint = el.closest("label") && el.closest("label").querySelector(".day-hint");
+    if (hint) hint.textContent = dayName(el.value);
+  }
   if (el.name === "customerId" && el.form && el.form.id === "appt-form") {
     const slot = document.getElementById("appt-loc");
     const person = customer(el.value);
     if (slot) slot.outerHTML = apptLocation(person);
     applyCustomerDefaults(person);
+    if (person && !person.lat) scheduleMapAddress();
+    return;
+  }
+  if (el.id === "imp-file" && el.files[0]) {
+    importFromFile(el.files[0]);
+    return;
+  }
+  if (el.dataset && el.dataset.impPick !== undefined) {
+    const idx = Number(el.dataset.impPick);
+    if (el.checked) imp.picked.add(idx);
+    else imp.picked.delete(idx);
+    showImportPreview();
+    return;
+  }
+  if (el.dataset && "impAll" in el.dataset) {
+    imp.picked = el.checked ? new Set(imp.items.map((_, i) => i)) : new Set();
+    showImportPreview();
     return;
   }
   if (el.dataset && el.dataset.msgPick) {
@@ -214,7 +232,18 @@ document.body.addEventListener("focusin", (event) => {
   event.target.select();
   openPicker("");
 });
+function scrollToSection(sectionId) {
+  const el = document.getElementById(sectionId);
+  if (!el) { toast(sectionId === "home-pending" ? "Δεν υπάρχουν εκκρεμείς πληρωμές." : "Δεν βρέθηκε."); return; }
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 document.body.addEventListener("keydown", (event) => {
+  if ((event.key === "Enter" || event.key === " ") && event.target.matches && event.target.matches(".kpi.click")) {
+    event.preventDefault();
+    event.target.click();
+    return;
+  }
   if (!event.target.closest || !event.target.closest("#cust-picker")) return;
   const { input, list } = pickerParts();
   const items = [...list.querySelectorAll(".picker-item")];
@@ -262,6 +291,7 @@ document.body.addEventListener("input", (event) => {
     if (send) send.innerHTML = sendPanel();
     return;
   }
+  if (el.form && el.form.id === "appt-form" && ["time", "duration"].includes(el.name)) refreshAgenda();
   if (el.id === "map-address") scheduleMapAddress();
   if (el.id === "maps-url") refreshMapFromLink();
 });
@@ -269,15 +299,42 @@ document.body.addEventListener("input", (event) => {
 let mapTimer;
 function scheduleMapAddress() {
   clearTimeout(mapTimer);
-  mapTimer = setTimeout(refreshMapAddress, 350);
+  mapTimer = setTimeout(refreshMapAddress, 800);
 }
+function currentMapAddress() {
+  const field = document.getElementById("map-address");
+  if (field) return field.value.trim();
+  const box = document.querySelector(".map-pick[data-address]");
+  return box ? box.dataset.address.trim() : "";
+}
+let geoToken = 0;
 function refreshMapAddress() {
-  if (document.getElementById("map-lat")?.value) return;
-  const address = document.getElementById("map-address")?.value.trim() || "";
+  const lat = document.getElementById("map-lat");
+  const lng = document.getElementById("map-lng");
+  if (lat && lat.value && lat.dataset.auto !== "1") return;
+  const address = currentMapAddress();
   const frame = document.getElementById("map-frame");
   const open = document.getElementById("open-gmaps");
-  if (frame && address) frame.src = embedSrc("", "", address);
+  const status = document.getElementById("map-status");
+  if (frame) frame.src = embedSrc("", "", address);
   if (open) open.href = mapsLink(address);
+  if (lat) { lat.value = ""; lng.value = ""; lat.dataset.auto = "1"; }
+  if (status) { status.textContent = address ? "Ψάχνω τη διεύθυνση στον χάρτη…" : ""; status.className = "map-status"; }
+  if (!address || !lat) return;
+  const token = ++geoToken;
+  geocode(address).then((found) => {
+    if (token !== geoToken || lat.dataset.auto !== "1" || !document.body.contains(lat)) return;
+    if (found) {
+      lat.value = found.lat;
+      lng.value = found.lng;
+      if (frame) frame.src = embedSrc(found.lat, found.lng);
+      if (open) open.href = mapsLink({ lat: found.lat, lng: found.lng });
+      if (status) { status.textContent = "Βρέθηκε αυτόματα από τη διεύθυνση. Έλεγξε στον χάρτη ότι είναι σωστό."; status.className = "map-status ok"; }
+    } else if (status) {
+      status.textContent = "Δεν βρέθηκε αυτόματα. Θα χρησιμοποιηθεί η διεύθυνση όπως την έγραψες.";
+      status.className = "map-status";
+    }
+  });
 }
 function refreshMapFromLink() {
   const link = document.getElementById("maps-url");
@@ -290,10 +347,7 @@ function refreshMapFromLink() {
   if (!link.value.trim()) {
     lat.value = "";
     lng.value = "";
-    if (status) {
-      status.textContent = "";
-      status.className = "map-status";
-    }
+    lat.dataset.auto = "1";
     refreshMapAddress();
     return;
   }
@@ -301,6 +355,7 @@ function refreshMapFromLink() {
   if (parsed && parsed.lat) {
     lat.value = parsed.lat;
     lng.value = parsed.lng;
+    lat.dataset.auto = "0";
     if (frame) frame.src = embedSrc(parsed.lat, parsed.lng);
     if (open) open.href = mapsLink({ lat: parsed.lat, lng: parsed.lng });
     if (status) {
@@ -311,6 +366,7 @@ function refreshMapFromLink() {
   }
   lat.value = "";
   lng.value = "";
+  lat.dataset.auto = "0";
   if (!status) return;
   status.className = "map-status bad";
   status.textContent = parsed && parsed.short
@@ -319,6 +375,8 @@ function refreshMapFromLink() {
 }
 
 function mapStatusError(parsed, fallback) {
+  const manual = document.querySelector(".map-manual");
+  if (manual) manual.open = true;
   const status = document.getElementById("map-status");
   if (!status) return;
   status.textContent = parsed && parsed.short
@@ -340,13 +398,13 @@ document.body.addEventListener("submit", (event) => {
       data.lng = parsedPin.lng;
     }
     if (!data.lat || !data.lng) {
-      if (!existing || data.mapsUrl) {
-        mapStatusError(parsedPin, "Πρώτα κλείδωσε το ακριβές σημείο από το Google Maps.");
+      if (data.mapsUrl) {
+        mapStatusError(parsedPin, "Αυτός ο σύνδεσμος δεν έχει ακριβές σημείο. Διόρθωσέ τον ή άδειασε το πεδίο για να χρησιμοποιηθεί η διεύθυνση.");
         return;
       }
-      data.lat = existing.lat || "";
-      data.lng = existing.lng || "";
-      data.mapsUrl = existing.mapsUrl || "";
+      data.lat = "";
+      data.lng = "";
+      data.mapsUrl = "";
     }
     data.isBuilding = form.elements.isBuilding.checked;
     data.hasApts = form.elements.hasApts.checked;
@@ -356,6 +414,12 @@ document.body.addEventListener("submit", (event) => {
     if (existing) Object.assign(existing, data);
     else state.customers.unshift({ id: uid("c"), ...data });
     save();
+    pushNote("Πελατολόγιο", `Αποθηκεύτηκε ο πελάτης ${data.name}.`, false);
+    if (form.dataset.return) {
+      backToApptWith(state.customers[0].id);
+      toast(`Προστέθηκε ο πελάτης ${data.name}.`);
+      return;
+    }
     closeSheet();
     go("customers");
     toast(`Αποθηκεύτηκε ο πελάτης ${data.name}.`);
@@ -364,6 +428,16 @@ document.body.addEventListener("submit", (event) => {
 
   if (form.id === "appt-form") {
     const data = formData(form);
+    if (!form.dataset.id && data.date < todayISO()) {
+      toast("Δεν μπορείς να βάλεις ραντεβού σε μέρα που πέρασε.");
+      return;
+    }
+    const clash = findClash(data.date, data.time, data.duration, form.dataset.id);
+    if (clash) {
+      refreshAgenda();
+      toast(`Δεν γίνεται: ${clashText(clash)}`);
+      return;
+    }
     const person = customer(data.customerId);
     if (!person) {
       const { error, input } = pickerParts();
@@ -377,8 +451,12 @@ document.body.addEventListener("submit", (event) => {
       person.lng = parsed.lng;
       person.mapsUrl = data.mapsUrl;
     }
-    if ((!person.lat || !person.lng) && !form.dataset.id) {
-      mapStatusError(parsed, "Κλείδωσε πρώτα το ακριβές σημείο από το Google Maps.");
+    if (!(parsed && parsed.lat) && !person.lat && data.lat && data.lng) {
+      person.lat = data.lat;
+      person.lng = data.lng;
+    }
+    if (has(data.mapsUrl) && !(parsed && parsed.lat)) {
+      mapStatusError(parsed, "Αυτός ο σύνδεσμος δεν έχει ακριβές σημείο. Διόρθωσέ τον ή άδειασε το πεδίο.");
       return;
     }
     if (person.lat && person.lng) {
@@ -399,7 +477,7 @@ document.body.addEventListener("submit", (event) => {
     save();
     afterSave(data.date);
     toast(`Ραντεβού ${data.time} · ${person.name} · ${longDate(data.date)}`);
-    pushNote("Ραντεβού", `${data.time} · ${person.name} · ${longDate(data.date)}`, false);
+    pushNote("Ραντεβού", `${data.time} · ${person.name} · ${longDate(data.date)}`, true);
     return;
   }
 
@@ -407,6 +485,9 @@ document.body.addEventListener("submit", (event) => {
     const appt = apptById(form.dataset.id);
     const next = formData(form).date;
     if (!appt || !next || next === appt.date) return;
+    if (next < todayISO()) { toast("Δεν μπορείς να μεταφέρεις ραντεβού σε μέρα που πέρασε."); return; }
+    const moveClash = findClash(next, appt.time, appt.duration, appt.id);
+    if (moveClash) { toast(`Δεν γίνεται: ${clashText(moveClash)}`); return; }
     appt.log = appt.log || [];
     appt.log.push({ kind: "moved", from: appt.date, to: next });
     appt.date = next;
@@ -416,6 +497,7 @@ document.body.addEventListener("submit", (event) => {
     afterSave(next);
     const person = customer(appt.customerId);
     toast(`${person ? person.name : "Ραντεβού"} πήγε στις ${longDate(next)}.`);
+    pushNote("Μεταφορά", `${person ? person.name : "Ραντεβού"} πήγε στις ${longDate(next)}.`, false);
     return;
   }
 
@@ -444,6 +526,8 @@ document.body.addEventListener("submit", (event) => {
       toast(`Αναμένεται πληρωμή ${euro(amountOf(appt))} από ${person ? person.name : "τον πελάτη"}.`);
       if (appt.repeat) repeatAppt(id);
     } else if (mode === "postpone") {
+      const postponeClash = findClash(data.date, data.time, appt.duration, id);
+      if (postponeClash) { toast(`Δεν γίνεται: ${clashText(postponeClash)}`); return; }
       const copy = postponeAppt(id, data.date, data.time, data.reason);
       closeSheet();
       if (copy) afterSave(copy.date);
@@ -466,6 +550,10 @@ document.body.addEventListener("submit", (event) => {
     const data = formData(form);
     state.settings.businessName = data.businessName || state.settings.businessName;
     state.settings.adminPhone = data.adminPhone || "";
+    if (data.workStart && data.workEnd && data.workEnd > data.workStart) {
+      state.settings.workStart = data.workStart;
+      state.settings.workEnd = data.workEnd;
+    }
     save();
     render();
     toast("Αποθηκεύτηκε.");
@@ -495,10 +583,7 @@ document.body.addEventListener("submit", (event) => {
     const existing = state.templates.find((t) => t.id === form.dataset.id);
     if (existing) Object.assign(existing, data);
     else {
-      const created = { id: uid("t"), ...data };
-      state.templates.push(created);
-      msgTemplateId = created.id;
-      msgText = created.text;
+      state.templates.push({ id: uid("t"), ...data });
     }
     save();
     closeSheet();
@@ -513,7 +598,11 @@ async function enablePush() {
     return;
   }
   const permission = await Notification.requestPermission();
-  if (permission === "granted") phoneNotify("Νίκος Βλάχος", "Οι ειδοποιήσεις έρχονται και στο τηλέφωνο.");
+  if (permission === "granted") {
+    await phoneNotify("Νίκος Βλάχος", "Οι ειδοποιήσεις έρχονται και στο τηλέφωνο.");
+  } else if (permission === "denied") {
+    toast("Οι ειδοποιήσεις είναι μπλοκαρισμένες. Ενεργοποίησέ τες από τις ρυθμίσεις του browser για αυτή τη σελίδα.");
+  }
   render();
 }
 
@@ -539,6 +628,10 @@ function tick() {
     dueSignature = signature;
     if (sheetEl.hidden && !isTyping()) render();
   }
+}
+
+if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 
 buildNav();

@@ -243,7 +243,7 @@ function pushNote(title, body, alsoPhone, apptId) {
 }
 async function phoneNotify(title, body) {
   if (!("Notification" in window) || Notification.permission !== "granted") return;
-  const options = { body, icon: "assets/logo-v2.png", badge: "assets/logo-v2.png", lang: "el" };
+  const options = { body, icon: "assets/icon-192.png", badge: "assets/icon-192.png", lang: "el" };
   try {
     const reg = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : null;
     if (reg && reg.showNotification) {
@@ -302,4 +302,34 @@ function findClash(date, time, duration, excludeId = "") {
 function clashText(clash) {
   const person = customer(clash.customerId);
   return `Έχεις ήδη ραντεβού στις ${clash.time}${person ? ` με ${person.name}` : ""}.`;
+}
+
+function workWindow() {
+  const s = state.settings;
+  const start = minutesOf(s.workStart || "08:00");
+  const end = minutesOf(s.workEnd || "21:00");
+  return end > start ? [start, end] : [8 * 60, 21 * 60];
+}
+function clock(minutes) {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+function freeRanges(date, minLength = 30) {
+  const today = todayISO();
+  if (date < today) return [];
+  let [from, to] = workWindow();
+  if (date === today) {
+    const now = new Date();
+    from = Math.max(from, Math.ceil((now.getHours() * 60 + now.getMinutes()) / 15) * 15);
+  }
+  const busy = dayAgenda(date)
+    .map((a) => [minutesOf(a.time), minutesOf(a.time) + durationMinutes(a.duration)])
+    .sort((a, b) => a[0] - b[0]);
+  const out = [];
+  let cursor = from;
+  busy.forEach(([start, end]) => {
+    if (start - cursor >= minLength) out.push([cursor, Math.min(start, to)]);
+    cursor = Math.max(cursor, end);
+  });
+  if (to - cursor >= minLength) out.push([cursor, to]);
+  return out.filter(([a, b]) => b - a >= minLength);
 }

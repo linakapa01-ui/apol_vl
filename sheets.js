@@ -156,7 +156,7 @@ function customerSheet(id) {
       : `<p class="note">Η τοποθεσία είναι προσεγγιστική, από τη διεύθυνση. Πάτα «Διόρθωση» για να βάλεις το ακριβές σημείο.</p>`}
     <div class="actions">
       <button class="solid" type="button" data-action="appt-for" data-id="${esc(person.id)}">${icon("plus")}Νέο ραντεβού</button>
-      ${call ? `<a class="ghost" href="${esc(call)}">${icon("phone")}Κλήση</a>` : ""}
+      ${call2 ? `<button class="ghost" type="button" data-action="pick-phone" data-id="${esc(person.id)}" data-v="call">${icon("phone")}Κλήση</button>` : call ? `<a class="ghost" href="${esc(call)}">${icon("phone")}Κλήση</a>` : ""}
       <button class="ghost" type="button" data-action="msg-customer" data-id="${esc(person.id)}">${icon("msg")}Μήνυμα</button>
       <button class="ghost" type="button" data-action="edit-customer" data-id="${esc(person.id)}">Διόρθωση</button>
     </div>
@@ -396,4 +396,13 @@ function loveSheet() {
       <p class="love-sign">Το γυναικάκι σου</p>
       <div class="hearts" aria-hidden="true">${Array.from({ length: 14 }, (_, i) => `<i style="--i:${i}">${icon("heart")}</i>`).join("")}</div>
     </div>`, "love-sheet");
+}
+
+function phoneSheet(id, mode) {
+  const person = customer(id);
+  if (!person) return;
+  const numbers = [person.phone, person.phone2].filter((n) => phoneLink(n));
+  const sms = mode === "sms";
+  openSheet(`<h2>${sms ? "Μήνυμα σε" : "Κλήση σε"} ${esc(person.name)}</h2>
+    <div class="phone-choice">${numbers.map((n) => `<a class="solid big" href="${esc(sms ? smsHref([n], "") : phoneLink(n))}">${icon(sms ? "msg" : "phone")}${esc(n)}</a>`).join("")}</div>`);
 }

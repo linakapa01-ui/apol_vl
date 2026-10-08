@@ -37,7 +37,7 @@ function paintBadge() {
   badgeEl.textContent = String(n);
 }
 function paintBrand() {
-  const logo = state.settings.logo || "assets/logo-v2.png";
+  const logo = state.settings.logo || "assets/logo-v3.png";
   document.querySelectorAll("[data-brand-logo]").forEach((img) => { img.src = logo; });
   document.getElementById("brand-name").textContent = state.settings.businessName.toLocaleUpperCase("el-GR");
   document.title = state.settings.businessName;
@@ -182,7 +182,7 @@ function renderHome() {
       <h2>${esc(todayHeadline(list.length, closed.length))}</h2>
       <div class="quick-icons">
         <button class="solid icon-act" type="button" data-action="new-appt" title="Νέο ραντεβού" aria-label="Νέο ραντεβού">${icon("calplus")}</button>
-        <button class="ghost icon-act" type="button" data-action="new-customer" title="Νέος πελάτης" aria-label="Νέος πελάτης">${icon("plus")}${icon("user")}</button>
+        <button class="ghost icon-act violet" type="button" data-action="new-customer" title="Νέος πελάτης" aria-label="Νέος πελάτης">${icon("plus")}${icon("user")}</button>
         <button class="ghost icon-act wide" type="button" data-view="messages" title="Μηνύματα SMS">${icon("msg")}<span>SMS</span></button>
       </div>
     </section>
@@ -208,7 +208,6 @@ function renderWeek() {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = todayISO();
   const active = state.appointments.filter((a) => isActive(a) && a.date >= days[0] && a.date <= days[6] && customer(a.customerId));
-  const expected = active.reduce((t, a) => t + amountOf(a), 0);
   const first = parseISO(days[0]);
   const last = parseISO(days[6]);
   const range = first.getMonth() === last.getMonth()
@@ -235,10 +234,25 @@ function renderWeek() {
     </div>
     <div class="kpis small">
       ${kpi("Ραντεβού", active.length, "blue")}
-      ${kpi("Αναμενόμενα έσοδα", esc(euro(expected)), "green")}
       ${thisWeek ? "" : `<button class="ghost" type="button" data-action="week-today">Πίσω στη σημερινή</button>`}
     </div>
+    ${freePanel(days)}
     <div class="week-list">${rows}</div>`;
+}
+function freePanel(days) {
+  const today = todayISO();
+  const rows = days.map((date, i) => ({ date, name: WEEKDAYS[i], free: freeRanges(date) })).filter((r) => r.date >= today);
+  if (!rows.length) return "";
+  const [ws, we] = workWindow();
+  return `<section class="panel free-panel">
+    <h2 class="section-label">ΕΛΕΥΘΕΡΕΣ ΩΡΕΣ <small>${clock(ws)}–${clock(we)}</small></h2>
+    ${rows.map((r) => `<div class="free-row${r.date === today ? " today" : ""}">
+      <span class="free-day"><b>${r.name}</b><i>${esc(shortDate(r.date))}</i></span>
+      <span class="free-chips">${r.free.length
+    ? r.free.map(([a, b]) => `<button type="button" class="free-chip" data-action="new-appt-day" data-date="${r.date}" data-time="${clock(a)}">${clock(a)}–${clock(b)}</button>`).join("")
+    : '<em class="free-none">Γεμάτη μέρα</em>'}</span>
+    </div>`).join("")}
+  </section>`;
 }
 function weekRow(appt) {
   const person = customer(appt.customerId);
@@ -314,17 +328,29 @@ function filteredCustomers() {
     return true;
   });
 }
+function phoneButtons(c) {
+  const numbers = [c.phone, c.phone2].filter((n) => phoneLink(n));
+  const pin = `<a class="act-btn" href="${esc(mapsLink(c))}" target="_blank" rel="noopener noreferrer" title="Τοποθεσία" aria-label="Τοποθεσία">${icon("pin")}</a>`;
+  if (!numbers.length) return pin;
+  const choose = numbers.length > 1;
+  const call = choose
+    ? `<button class="act-btn" type="button" data-action="pick-phone" data-id="${esc(c.id)}" data-v="call" title="Κλήση" aria-label="Κλήση">${icon("phone")}</button>`
+    : `<a class="act-btn" href="${esc(phoneLink(numbers[0]))}" title="Κλήση" aria-label="Κλήση">${icon("phone")}</a>`;
+  const sms = choose
+    ? `<button class="act-btn" type="button" data-action="pick-phone" data-id="${esc(c.id)}" data-v="sms" title="Μήνυμα" aria-label="Μήνυμα">${icon("msg")}</button>`
+    : `<a class="act-btn" href="${esc(smsHref([numbers[0]], ""))}" title="Μήνυμα" aria-label="Μήνυμα">${icon("msg")}</a>`;
+  return `${pin}${call}${sms}`;
+}
 function customerCard(c) {
-  const call = phoneLink(c.phone);
   const cats = customerCategories(c);
   const fp = floorPriceText(null, c);
   return `<article class="card person">
     <div class="card-body" data-action="customer" data-id="${esc(c.id)}">
       <div class="time"><h3>${esc(c.name)}</h3>${ratingBadge(c, false)}</div>
-      <a class="meta map" href="${esc(mapsLink(c))}" target="_blank" rel="noopener noreferrer">${icon("pin")}<span>${esc(c.address)}</span></a>
-      ${call ? `<a class="meta phone" href="${esc(call)}">${icon("phone")}<span>${esc(c.phone)}</span></a>` : ""}
+      <p class="meta">${icon("pin")}<span>${esc(c.address) || "Χωρίς διεύθυνση"}</span></p>
       ${flagsHTML(c)}
       <div class="chips">${cats.map((x) => `<span class="chip">${esc(x)}</span>`).join("")}${fp ? `<span class="chip money">${esc(fp)} ανά όροφο</span>` : ""}</div>
+      <div class="person-acts">${phoneButtons(c)}</div>
     </div>
   </article>`;
 }
@@ -334,7 +360,7 @@ function customerResults() {
     <div class="stack">${list.map(customerCard).join("") || emptyBox("Δεν βρέθηκε πελάτης με αυτά τα φίλτρα.")}</div>`;
 }
 function renderCustomers() {
-  viewEl.innerHTML = `<div class="row"><h2 class="section-label">ΠΕΛΑΤΟΛΟΓΙΟ</h2><span class="row-actions"><button class="ghost small" type="button" data-action="import-contacts" title="Εισαγωγή επαφών" aria-label="Εισαγωγή επαφών">${icon("import")}</button><button class="solid small" type="button" data-action="new-customer">${icon("plus")}Νέος πελάτης</button></span></div>
+  viewEl.innerHTML = `<div class="row"><h2 class="section-label">ΠΕΛΑΤΟΛΟΓΙΟ</h2><span class="row-actions"><button class="ghost small" type="button" data-action="import-contacts" title="Εισαγωγή επαφών" aria-label="Εισαγωγή επαφών">${icon("import")}</button><button class="solid small violet" type="button" data-action="new-customer">${icon("plus")}Νέος πελάτης</button></span></div>
     <input class="search" id="search" type="search" placeholder="Αναζήτηση ονόματος, περιοχής, τηλεφώνου" value="${esc(query)}" autocomplete="off">
     <div id="cust-filters">${customerFilterChips()}</div>
     <div id="cust-results">${customerResults()}</div>`;
@@ -379,7 +405,7 @@ function renderProfile() {
   const base = new Set(DEFAULT_CATEGORIES);
   viewEl.innerHTML = `<div class="profile-grid">
     <article class="panel profile-card">
-      <img src="${esc(s.logo || "assets/logo-v2.png")}" alt="Λογότυπο" data-brand-logo>
+      <img src="${esc(s.logo || "assets/logo-v3.png")}" alt="Λογότυπο" data-brand-logo>
       <h2>${esc(s.businessName)}</h2>
       <p class="sub">Απεντόμωση · Μυοκτονία · Απολύμανση</p>
       <div class="actions center"><label class="ghost file-btn">Αλλαγή λογοτύπου<input type="file" id="logo-file" accept="image/*" hidden></label>${s.logo ? '<button class="text-btn danger" type="button" data-action="logo-reset">Αρχικό λογότυπο</button>' : ""}</div>
@@ -388,6 +414,8 @@ function renderProfile() {
       <strong>Στοιχεία</strong>
       <label>Όνομα επιχείρησης<input name="businessName" value="${esc(s.businessName)}" required></label>
       <label>Τηλέφωνο διαχειριστή<input name="adminPhone" inputmode="tel" value="${esc(s.adminPhone)}" placeholder="Το κινητό σου"></label>
+      <div class="grid-2"><label>Ωράριο από<input type="time" name="workStart" value="${esc(s.workStart || "08:00")}" required></label><label>Ωράριο έως<input type="time" name="workEnd" value="${esc(s.workEnd || "21:00")}" required></label></div>
+      <p class="note">Το ωράριο χρησιμοποιείται για να δείχνει τις ελεύθερες ώρες στην Εβδομάδα.</p>
       <button class="solid" type="submit">Αποθήκευση</button>
     </form>
     <article class="panel">

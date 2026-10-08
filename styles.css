@@ -590,3 +590,29 @@ label.recip.nophone { opacity: 0.5; cursor: not-allowed; }
 .imp-list { max-height: 46vh; }
 .row .section-label { white-space: nowrap; }
 .row-actions .solid, .row-actions .ghost { white-space: nowrap; }
+.solid.violet { background: var(--c-violet); color: #140a33; }
+.icon-act.violet { background: rgba(var(--c-violet-rgb), 0.2); border-color: rgba(var(--c-violet-rgb), 0.6); color: var(--c-violet); }
+.rating, .rating-card { --tone: var(--c-amber) !important; --tone-rgb: var(--c-amber-rgb) !important; }
+.rating .ico { fill: currentColor; }
+.logo { filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.45)); }
+.person-acts { display: flex; gap: 10px; margin-top: 8px; }
+.act-btn { width: 46px; height: 42px; display: inline-flex; align-items: center; justify-content: center; border-radius: 13px; border: 1px solid var(--line-strong); background: var(--chip); color: var(--accent); cursor: pointer; padding: 0; text-decoration: none; }
+.act-btn .ico { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.phone-choice { display: grid; gap: 10px; margin-top: 14px; }
+.phone-choice .solid { text-decoration: none; display: inline-flex; justify-content: center; align-items: center; gap: 8px; }
+.free-panel { display: grid; gap: 4px; margin: 10px 0 14px; }
+.free-panel .section-label { margin: 0 0 4px; display: flex; justify-content: space-between; align-items: baseline; }
+.free-panel .section-label small { font-weight: 700; color: var(--muted); letter-spacing: 0; }
+.free-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.free-row:first-of-type { border-top: 0; }
+.free-row.today .free-day b { color: var(--accent); }
+.free-day { display: grid; gap: 1px; }
+.free-day b { font-size: 15px; }
+.free-day i { font-style: normal; font-size: 12px; color: var(--muted); }
+.free-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.free-chip { border: 1px solid rgba(var(--c-green-rgb), 0.5); background: rgba(var(--c-green-rgb), 0.12); color: var(--c-green); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 800; cursor: pointer; }
+.free-none { font-style: normal; font-size: 13px; color: var(--muted); }
+.day-acc summary::after { content: ""; width: 8px; height: 8px; margin: 0 4px 3px 6px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); flex: none; transition: transform .2s; }
+.day-acc[open] summary::after { transform: rotate(-135deg); margin-bottom: 0; margin-top: 4px; }
+.day-meta { height: 28px; }
+.day-meta .muted-tag, .day-meta .count-pill { display: inline-flex; align-items: center; height: 28px; line-height: 1; }
