@@ -170,16 +170,25 @@ function sumEuros(text) {
   const plain = raw.trim().match(/^\d+(?:[.,]\d+)?$/);
   return plain ? Number(plain[0].replace(",", ".")) : 0;
 }
+function parseDuration(value) {
+  const text = String(value || "").toLowerCase().replace(/ά/g, "α").replace(/ί/g, "ι").replace(/ή/g, "η").replace(/ώ/g, "ω");
+  const nums = (text.match(/\d+(?:[.,]\d+)?/g) || []).map((n) => Number(n.replace(",", ".")));
+  const hasHours = /ωρ/.test(text);
+  if (!nums.length) return hasHours && /μιση|μισο/.test(text) ? 30 : 0;
+  if (!hasHours) return Math.round(nums[0]);
+  const extra = nums[1] || (/μιση|μισο/.test(text) ? 30 : 0);
+  return Math.round(nums[0] * 60 + extra);
+}
 function durationMinutes(value) {
-  const text = String(value || "");
-  const n = Number((text.match(/\d+/) || [])[0]);
-  if (!n) return 60;
-  return /ωρ/i.test(text) ? n * 60 : n;
+  return parseDuration(value) || 60;
 }
 function durationShort(value) {
   if (!has(value)) return "";
-  const n = String(value).match(/\d+/);
-  return n ? `${n[0]}′` : String(value);
+  const m = parseDuration(value);
+  if (!m) return String(value);
+  if (m < 60) return `${m}′`;
+  const rest = m % 60;
+  return rest ? `${Math.floor(m / 60)}ω ${rest}′` : `${Math.floor(m / 60)}ω`;
 }
 
 function formData(form) {

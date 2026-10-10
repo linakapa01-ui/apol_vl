@@ -85,7 +85,13 @@ function refreshMessageParts() {
   const recips = document.getElementById("msg-recips");
   const send = document.getElementById("msg-send");
   const filters = document.getElementById("msg-filters");
-  if (recips) recips.innerHTML = recipientList();
+  const listBox = recips && recips.querySelector(".recip-list");
+  const scroll = listBox ? listBox.scrollTop : 0;
+  if (recips) {
+    recips.innerHTML = recipientList();
+    const fresh = recips.querySelector(".recip-list");
+    if (fresh) fresh.scrollTop = scroll;
+  }
   if (send) send.innerHTML = sendPanel();
   if (filters) filters.innerHTML = msgFilterChips();
 }

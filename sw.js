@@ -4,10 +4,13 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "GET" || url.origin !== self.location.origin || !url.pathname.includes("/assets/")) return;
   event.respondWith(
-    caches.open(IMAGE_CACHE).then((cache) => cache.match(event.request).then((hit) => hit || fetch(event.request).then((res) => {
-      if (res.ok) cache.put(event.request, res.clone());
-      return res;
-    })))
+    caches.open(IMAGE_CACHE).then((cache) => cache.match(event.request).then((hit) => {
+      const network = fetch(event.request).then((res) => {
+        if (res.ok) cache.put(event.request, res.clone());
+        return res;
+      });
+      return hit || network;
+    }))
   );
 });
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));

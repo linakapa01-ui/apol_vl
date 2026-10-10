@@ -616,3 +616,9 @@ label.recip.nophone { opacity: 0.5; cursor: not-allowed; }
 .day-acc[open] summary::after { transform: rotate(-135deg); margin-bottom: 0; margin-top: 4px; }
 .day-meta { height: 28px; }
 .day-meta .muted-tag, .day-meta .count-pill { display: inline-flex; align-items: center; height: 28px; line-height: 1; }
+@media (max-width: 380px) {
+  .row { gap: 8px; }
+  .row .section-label { font-size: 11px; letter-spacing: 0.08em; }
+  .row-actions { gap: 6px; }
+  .row-actions .solid.small, .row-actions .ghost.small { padding: 8px 10px; font-size: 12px; }
+}

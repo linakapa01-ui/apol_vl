@@ -185,7 +185,11 @@ function importPreview() {
 function showImportPreview() {
   const body = document.getElementById("imp-body");
   if (!body) return;
+  const old = body.querySelector(".imp-list");
+  const scroll = old ? old.scrollTop : 0;
   body.innerHTML = imp.items.length ? importPreview() : importChooser();
+  const fresh = body.querySelector(".imp-list");
+  if (fresh) fresh.scrollTop = scroll;
 }
 
 function loadImportItems(parsed) {
