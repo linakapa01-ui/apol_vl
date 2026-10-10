@@ -22,6 +22,17 @@ as $$
   where code = p_code and length(p_code) >= 12;
 $$;
 
+create or replace function public.get_version(p_code text)
+returns timestamptz
+language sql
+security definer
+set search_path = public
+as $$
+  select updated_at
+  from public.app_state
+  where code = p_code and length(p_code) >= 12;
+$$;
+
 create or replace function public.put_state(p_code text, p_data jsonb, p_expected timestamptz)
 returns timestamptz
 language plpgsql
@@ -56,6 +67,8 @@ end;
 $$;
 
 revoke all on function public.get_state(text) from public;
+revoke all on function public.get_version(text) from public;
 revoke all on function public.put_state(text, jsonb, timestamptz) from public;
 grant execute on function public.get_state(text) to anon;
+grant execute on function public.get_version(text) to anon;
 grant execute on function public.put_state(text, jsonb, timestamptz) to anon;

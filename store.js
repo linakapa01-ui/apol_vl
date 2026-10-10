@@ -41,14 +41,8 @@ function preStamp(record) {
 }
 
 function seed() {
-  const today = todayISO();
-  const customers = [
-    { id: "c1", name: "Φωτεινή Λιώλη", address: "Γραβιάς 66, Πετρούπολη, 13231", isBuilding: true, hasApts: true, manholes: false, categories: ["Απεντόμωση"], floorPrice: "", cost: "45€ + 15€ τζελ Κ", apartments: "2", phone: "6939948096", phone2: "6975668158", lastDate: "", pest: "Κατσαρίδα (τζελ Κ)", notes: "" },
-    { id: "c2", name: "Βάνα Πηγαδιώτη Φίλη Αντωνίας", address: "Δήλου 12, Περιστέρι, 12134", isBuilding: true, hasApts: true, manholes: false, categories: ["Απεντόμωση", "Κουνούπια"], floorPrice: "", cost: "45€ + 20€ κουνούπια", apartments: "2", phone: "6946892290", phone2: "", lastDate: "", pest: "Κουνούπια", notes: "" },
-    { id: "c3", name: "Βάσω Γράψα", address: "Μπουμπουλίνας και Νάξου 12, Άλσος Χαϊδαρίου, 12462", isBuilding: true, hasApts: true, manholes: false, categories: ["Απεντόμωση"], floorPrice: "", cost: "45€ + 15€ τζελ Κ + 15€ συνεργείο", apartments: "3 (μόνο κοινόχρηστα)", phone: "6977090580", phone2: "", lastDate: "", pest: "Κατσαρίδα (τζελ Κ)", notes: "Μόνο κοινόχρηστα." }
-  ];
-  const mk = (id, i, time, duration) => ({ id, customerId: customers[i].id, date: today, time, service: "Απεντόμωση", floor: "", manholes: "", cost: customers[i].cost, duration, status: "scheduled", log: [], notes: "", repeat: "" });
-  const appointments = [mk("a1", 0, "09:00", "45 λεπτά"), mk("a2", 1, "11:30", "40 λεπτά"), mk("a3", 2, "14:00", "55 λεπτά")];
+  const customers = [];
+  const appointments = [];
   customers.forEach(preStamp);
   appointments.forEach(preStamp);
   const templates = defaultTemplates().map(preStamp);
@@ -233,6 +227,24 @@ function schedulePush() {
   pushTimer = setTimeout(syncNow, 1200);
 }
 
+let remoteVersion = null;
+function sameInstant(a, b) {
+  return a === b || (Boolean(a) && Boolean(b) && new Date(a).getTime() === new Date(b).getTime());
+}
+let versionApi = true;
+async function peekVersion(code) {
+  if (!versionApi) return undefined;
+  try {
+    return await rpc("get_version", { p_code: code });
+  } catch (error) {
+    if (/^(400|404)/.test(String(error.message))) {
+      versionApi = false;
+      return undefined;
+    }
+    throw error;
+  }
+}
+
 async function syncNow() {
   if (!syncEnabled() || sync.busy) return;
   if (!navigator.onLine) {
@@ -245,7 +257,23 @@ async function syncNow() {
   try {
     const code = getSync().code;
     for (let attempt = 0; attempt < 4; attempt++) {
+      if (attempt === 0 && remoteVersion && versionApi) {
+        if (dirty) {
+          stamp();
+          persist();
+          const quick = await rpc("put_state", { p_code: code, p_data: snapshot(), p_expected: remoteVersion });
+          if (quick) {
+            remoteVersion = quick;
+            setDirty(false);
+            break;
+          }
+        } else {
+          const current = await peekVersion(code);
+          if (current !== undefined && sameInstant(current, remoteVersion)) break;
+        }
+      }
       const remote = await rpc("get_state", { p_code: code });
+      remoteVersion = remote ? remote.updated_at : null;
       const hasData = Boolean(remote && remote.data && Object.keys(remote.data).length);
       if (hasData && mergeRemote(remote.data)) {
         remoteChanged = true;
@@ -256,6 +284,7 @@ async function syncNow() {
       if (hasData && !dirty) break;
       const version = await rpc("put_state", { p_code: code, p_data: snapshot(), p_expected: remote ? remote.updated_at : null });
       if (version) {
+        remoteVersion = version;
         setDirty(false);
         break;
       }
@@ -275,6 +304,7 @@ function connectSync(code) {
   return syncNow();
 }
 function disconnectSync() {
+  remoteVersion = null;
   localStorage.removeItem(SYNC_KEY);
   setSyncStatus("off");
 }
@@ -282,6 +312,6 @@ function disconnectSync() {
 initKnown();
 stamp();
 persist();
-setInterval(syncNow, 20000);
+setInterval(() => { if (!document.hidden) syncNow(); }, 20000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) syncNow(); });
 window.addEventListener("online", syncNow);
